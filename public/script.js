@@ -1,3 +1,5 @@
+const socket = io();  // Connect to Socket.IO
+
 document.addEventListener('DOMContentLoaded', () => {
     fetch('/get-user-id')
         .then(response => response.json())
@@ -7,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
     const submitButton = document.getElementById('submit-button');
-    const sendButton = document.getElementById('send-button'); // New Send button
+    const sendButton = document.getElementById('send-button');
 
     submitButton.addEventListener('click', () => {
         const textInput = document.getElementById('text-input').value;
@@ -17,13 +19,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // New event listener for the "Send to OpenAI" button
     sendButton.addEventListener('click', () => {
         sendToOpenAI(); // Function to handle sending all collected texts
     });
+
+    // Listen for real-time updates from the server
+    socket.on('update', (data) => {
+        updatePageWithAIOutput({ aiOutput: data });
+    });
 });
 
-// Function to submit text to the server
 function submitText(text) {
     fetch('/submit-text', {
         method: 'POST',
@@ -34,7 +39,6 @@ function submitText(text) {
       .catch(error => console.error('Error:', error));
 }
 
-// Function to handle sending collected texts to OpenAI
 function sendToOpenAI() {
     fetch('/send-to-openai', {
         method: 'POST',
@@ -44,20 +48,14 @@ function sendToOpenAI() {
       .catch(error => console.error('Error:', error));
 }
 
-// Function to update collected texts on the page
 function updateCollectedTexts(data) {
     const collectedTextsDiv = document.getElementById('collected-texts');
     collectedTextsDiv.innerHTML = data.texts.map(item => `<p>${item}</p>`).join('');
 }
 
-// Function to update the page with AI output and recipient info
 function updatePageWithAIOutput(data) {
     const aiOutputDiv = document.getElementById('ai-output');
-    
-    if (data.aiOutput && data.recipientUserId) {
-        aiOutputDiv.innerHTML = `<p>AI Output: ${data.aiOutput}</p><p>Output sent to: ${data.recipientUserId}</p>`;
+    if (data.aiOutput) {
+        aiOutputDiv.innerHTML += `<p>${data.aiOutput}</p>`;
     }
-
-    const collectedTextsDiv = document.getElementById('collected-texts');
-    collectedTextsDiv.innerHTML = data.texts.map(item => `<p>${item}</p>`).join('');
 }
