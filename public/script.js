@@ -1,5 +1,3 @@
-const socket = io();  // Connect to Socket.IO
-
 document.addEventListener('DOMContentLoaded', () => {
     fetch('/get-user-id')
         .then(response => response.json())
@@ -23,10 +21,18 @@ document.addEventListener('DOMContentLoaded', () => {
         sendToOpenAI(); // Function to handle sending all collected texts
     });
 
-    // Listen for real-time updates from the server
-    socket.on('update', (data) => {
-        updatePageWithAIOutput({ aiOutput: data });
-    });
+    // Polling function to get updates from the server
+    function pollForUpdates() {
+        fetch('/get-updates')
+            .then(response => response.json())
+            .then(data => {
+                updatePageWithAIOutput({ aiOutput: data.logData });
+            })
+            .catch(error => console.error('Error fetching updates:', error));
+    }
+
+    // Start polling every 5 seconds
+    setInterval(pollForUpdates, 5000);
 });
 
 function submitText(text) {
@@ -56,6 +62,6 @@ function updateCollectedTexts(data) {
 function updatePageWithAIOutput(data) {
     const aiOutputDiv = document.getElementById('ai-output');
     if (data.aiOutput) {
-        aiOutputDiv.innerHTML += `<p>${data.aiOutput}</p>`;
+        aiOutputDiv.innerHTML = data.aiOutput.split('\n').map(line => `<p>${line}</p>`).join('');
     }
 }
