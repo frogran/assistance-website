@@ -95,9 +95,6 @@ app.post('/submit-text', async (req, res) => {
     res.json({ message: 'Text submitted successfully' });
 });
 
-server.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-});
 
 // New endpoint to handle sending collected texts to OpenAI
 app.post('/send-to-openai', async (req, res) => {
