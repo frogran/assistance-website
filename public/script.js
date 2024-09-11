@@ -40,10 +40,22 @@ function submitText(text) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text })
-    }).then(response => response.json())
-      .then(data => updateCollectedTexts(data))
-      .catch(error => console.error('Error:', error));
+    }).then(response => {
+        if (!response.ok) {
+            // Check for non-2xx status codes
+            return response.json().then(errorData => {
+                throw new Error(errorData.error || 'Unknown error');
+            });
+        }
+        return response.json();
+    })
+    .then(data => updateCollectedTexts(data))
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error: ' + error.message); // Display a user-friendly error message
+    });
 }
+
 
 function sendToOpenAI() {
     fetch('/send-to-openai', {

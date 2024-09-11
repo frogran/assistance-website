@@ -85,14 +85,21 @@ app.use((req, res, next) => {
   next();
 });
 
-// Endpoint to handle text submission
+
 app.post('/submit-text', async (req, res) => {
-    const { text } = req.body;
-    const sessionKey = `submissions_${text_idx}`; // Example session key
-    let sessionData = await getSessionData(sessionKey);
-    sessionData += `\n${text}`;
-    await saveSessionData(sessionKey, sessionData);
-    res.json({ message: 'Text submitted successfully' });
+    try {
+        console.log('Received POST /submit-text');
+        const { text } = req.body;
+        console.log('Text submitted:', text);
+        const sessionKey = `submissions_${text_idx}`; // Example session key
+        let sessionData = await getSessionData(sessionKey);
+        sessionData += `\n${text}`;
+        await saveSessionData(sessionKey, sessionData);
+        res.json({ message: 'Text submitted successfully' });
+    } catch (error) {
+        console.error('Error in /submit-text:', error); // Log the error for debugging
+        res.status(500).json({ error: 'Failed to submit text' }); // Send a valid JSON error response
+    }
 });
 
 
