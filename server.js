@@ -33,7 +33,7 @@ function generateUserId(ip) {
 }
 
 async function saveSessionData(sessionKey, data) {
-    const response = await fetch(`https://edge-config.vercel.com/v1/configs/${process.env.VERCEL_EDGE_CONFIG_ID}/items`, {
+    const response = await fetch(`https://edge-config.vercel.com/v1/edge-config/${process.env.VERCEL_EDGE_CONFIG_ID}/items`, {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
@@ -53,7 +53,7 @@ async function saveSessionData(sessionKey, data) {
 }
 
 async function getSessionData(sessionKey) {
-    const response = await fetch(`https://edge-config.vercel.com/v1/configs/${process.env.VERCEL_EDGE_CONFIG_ID}/items/${sessionKey}`, {
+    const response = await fetch(`https://edge-config.vercel.com/v1/edge-config/${process.env.VERCEL_EDGE_CONFIG_ID}/items/${sessionKey}`, {
         method: 'GET',
         headers: {
             'Authorization': `Bearer ${process.env.VERCEL_TOKEN}`,
