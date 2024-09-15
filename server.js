@@ -14,7 +14,7 @@ const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  databaseURL: "reinforcement-c359d.firebaseapp.com"
+  databaseURL: "https://reinforcement-c359d.firebaseio.com"
 });
 
 const db = admin.database();
