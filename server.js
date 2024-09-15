@@ -13,8 +13,7 @@ const PORT = process.env.PORT || 3000;
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
 
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  databaseURL: "https://reinforcement-c359d.firebaseio.com"
+  credential: admin.credential.cert(serviceAccount)
 });
 
 const db = admin.database();
