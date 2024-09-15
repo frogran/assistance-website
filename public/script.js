@@ -1,10 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
-    fetch('/get-user-id')
-        .then(response => response.json())
-        .then(data => {
-            const userId = data.userId;
-            document.getElementById('user-id').innerText = userId;
-        });
+    let userId = localStorage.getItem('userId');
+    if (!userId) {
+        userId = 'User-' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('userId', userId);
+    }
+    document.getElementById('user-id').innerText = userId;
 
     const submitButton = document.getElementById('submit-button');
     const sendButton = document.getElementById('send-button');
@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     submitButton.addEventListener('click', () => {
         const textInput = document.getElementById('text-input').value;
         if (textInput.trim()) {
-            submitText(textInput);
+            submitText(textInput, userId);
             document.getElementById('text-input').value = ''; // Clear input field
         }
     });
@@ -26,7 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
         fetch('/get-updates')
             .then(response => response.json())
             .then(data => {
-                updatePageWithAIOutput({ aiOutput: data.logData });
+                updateCollectedTexts(data);
+                updatePageWithAIOutput(data);
             })
             .catch(error => console.error('Error fetching updates:', error));
     }
@@ -35,11 +36,11 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(pollForUpdates, 5000);
 });
 
-function submitText(text) {
+function submitText(text, userId) {
     fetch('/submit-text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text })
+        body: JSON.stringify({ text, userId })
     }).then(response => {
         if (!response.ok) {
             // Check for non-2xx status codes
@@ -49,13 +50,14 @@ function submitText(text) {
         }
         return response.json();
     })
-    .then(data => updateCollectedTexts(data))
+    .then(data => {
+        // Optionally handle success
+    })
     .catch(error => {
         console.error('Error:', error);
         alert('Error: ' + error.message); // Display a user-friendly error message
     });
 }
-
 
 function sendToOpenAI() {
     fetch('/send-to-openai', {
@@ -68,12 +70,17 @@ function sendToOpenAI() {
 
 function updateCollectedTexts(data) {
     const collectedTextsDiv = document.getElementById('collected-texts');
-    collectedTextsDiv.innerHTML = data.texts.map(item => `<p>${item}</p>`).join('');
+    if (data.submissions) {
+        collectedTextsDiv.innerHTML = data.submissions.map(item => `<p>${item.text}</p>`).join('');
+    }
 }
 
 function updatePageWithAIOutput(data) {
     const aiOutputDiv = document.getElementById('ai-output');
-    if (data.aiOutput) {
+    if (data.aiOutputs && data.aiOutputs.length > 0) {
+        const latestOutput = data.aiOutputs[data.aiOutputs.length - 1].output;
+        aiOutputDiv.innerHTML = latestOutput.split('\n').map(line => `<p>${line}</p>`).join('');
+    } else if (data.aiOutput) {
         aiOutputDiv.innerHTML = data.aiOutput.split('\n').map(line => `<p>${line}</p>`).join('');
     }
 }
