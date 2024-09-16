@@ -1,7 +1,14 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const adjectives = ['Brave', 'Calm', 'Delightful', 'Eager', 'Fancy', 'Gentle', 'Happy', 'Jolly', 'Kind', 'Lively', 'Nice', 'Proud', 'Silly', 'Thankful', 'Witty', 'Zealous'];
+    
     let userId = localStorage.getItem('userId');
     if (!userId) {
-        userId = 'User-' + Math.random().toString(36).substr(2, 9);
+        function generateUserId() {
+            const adj1 = adjectives[Math.floor(Math.random() * adjectives.length)];
+            const adj2 = adjectives[Math.floor(Math.random() * adjectives.length)];
+            return `${adj1}${adj2}`;
+        }
+        userId = generateUserId();
         localStorage.setItem('userId', userId);
     }
     document.getElementById('user-id').innerText = userId;
@@ -23,14 +30,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Polling function to get updates from the server
     function pollForUpdates() {
-        fetch('/get-updates')
-            .then(response => response.json())
+        const userId = localStorage.getItem('userId');
+        fetch(`/get-updates?userId=${encodeURIComponent(userId)}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Server responded with status ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
                 updateCollectedTexts(data);
                 updatePageWithAIOutput(data);
+                updateRecipientUser(data.recipientUserId);
             })
             .catch(error => console.error('Error fetching updates:', error));
     }
+
 
     // Start polling every 5 seconds
     setInterval(pollForUpdates, 5000);
@@ -78,9 +93,21 @@ function updateCollectedTexts(data) {
 function updatePageWithAIOutput(data) {
     const aiOutputDiv = document.getElementById('ai-output');
     if (data.aiOutputs && data.aiOutputs.length > 0) {
-        const latestOutput = data.aiOutputs[data.aiOutputs.length - 1].output;
-        aiOutputDiv.innerHTML = latestOutput.split('\n').map(line => `<p>${line}</p>`).join('');
+        const latestOutput = data.aiOutputs[data.aiOutputs.length - 1];
+        aiOutputDiv.innerHTML = latestOutput.output.split('\n').map(line => `<p>${line}</p>`).join('');
+
+        if (latestOutput.recipientUserId) {
+            const recipientInfoDiv = document.getElementById('recipient-info');
+            recipientInfoDiv.innerText = `AI output sent to: ${latestOutput.recipientUserId}`;
+        }
     } else if (data.aiOutput) {
         aiOutputDiv.innerHTML = data.aiOutput.split('\n').map(line => `<p>${line}</p>`).join('');
+    }
+}
+
+function updateRecipientUser(recipientUserId) {
+    if (recipientUserId) {
+        const recipientInfoDiv = document.getElementById('recipient-info');
+        recipientInfoDiv.innerText = `AI output sent to: ${recipientUserId}`;
     }
 }
