@@ -30,7 +30,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Polling function to get updates from the server
     function pollForUpdates() {
-        const userId = localStorage.getItem('userId');
         fetch(`/get-updates?userId=${encodeURIComponent(userId)}`)
             .then(response => {
                 if (!response.ok) {
@@ -45,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .catch(error => console.error('Error fetching updates:', error));
     }
+
 
 
     // Start polling every 5 seconds
@@ -83,27 +83,41 @@ function sendToOpenAI() {
       .catch(error => console.error('Error:', error));
 }
 
+
 function updateCollectedTexts(data) {
     const collectedTextsDiv = document.getElementById('collected-texts');
     if (data.submissions) {
-        collectedTextsDiv.innerHTML = data.submissions.map(item => `<p>${item.text}</p>`).join('');
+      collectedTextsDiv.innerHTML = data.submissions.map(item => {
+        const isProcessed = item.timestamp <= data.lastProcessedTimestamp;
+        const style = isProcessed ? 'style="color: gray;"' : '';
+        return `<p ${style}>${item.text}</p>`;
+      }).join('');
     }
-}
+  }
+  
+
+// script.js
 
 function updatePageWithAIOutput(data) {
     const aiOutputDiv = document.getElementById('ai-output');
-    if (data.aiOutputs && data.aiOutputs.length > 0) {
-        const latestOutput = data.aiOutputs[data.aiOutputs.length - 1];
-        aiOutputDiv.innerHTML = latestOutput.output.split('\n').map(line => `<p>${line}</p>`).join('');
-
-        if (latestOutput.recipientUserId) {
-            const recipientInfoDiv = document.getElementById('recipient-info');
-            recipientInfoDiv.innerText = `AI output sent to: ${latestOutput.recipientUserId}`;
-        }
-    } else if (data.aiOutput) {
-        aiOutputDiv.innerHTML = data.aiOutput.split('\n').map(line => `<p>${line}</p>`).join('');
+    const recipientInfoDiv = document.getElementById('recipient-info');
+    const userId = localStorage.getItem('userId');
+  
+    if (data.aiOutputContent) {
+      // The AI output is sent to this user
+      aiOutputDiv.innerHTML = data.aiOutputContent.split('\n').map(line => `<p>${line}</p>`).join('');
+      recipientInfoDiv.innerText = `AI output sent to you (${userId})`;
+    } else if (data.recipientUserId) {
+      // AI output was sent to someone else
+      recipientInfoDiv.innerText = `AI output sent to: ${data.recipientUserId}`;
+      aiOutputDiv.innerHTML = ''; // Clear any previous AI output
+    } else {
+      // No AI output yet
+      recipientInfoDiv.innerText = '';
+      aiOutputDiv.innerHTML = '';
     }
-}
+  }
+  
 
 function updateRecipientUser(recipientUserId) {
     if (recipientUserId) {
