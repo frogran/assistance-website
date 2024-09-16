@@ -81,7 +81,7 @@ app.post('/send-to-openai', async (req, res) => {
           model: "gpt-4o-mini",
           messages: [{
             "role": "user",
-            "content": "You are a blind choreographer. Helpers have given you keywords to describe what your choreography brings up in them. Describe only one sentence that integrates all of the actions for the dance mde up of the inputs".concat(allTexts)
+            "content": "You are a blind choreographer. Helpers have given you keywords to describe what your choreography brings up in them. Describe only one sentence that integrates all of the actions for the dance made up of the inputs. There is only a single dancer. Talk directly to the dancer. Helper's words:".concat(allTexts)
           }],
         });
   
