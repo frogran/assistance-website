@@ -78,10 +78,10 @@ app.post('/send-to-openai', async (req, res) => {
   
         // Call OpenAI API
         const response = await openai.chat.completions.create({
-          model: "gpt-3.5-turbo",
+          model: "gpt-4o-mini",
           messages: [{
             "role": "user",
-            "content": "You are a blind choreographer. Helpers have given you keywords to describe what your choreography brings up in them. Describe in detail the movements that would emphasize their descriptions. ".concat(allTexts)
+            "content": "You are a blind choreographer. Helpers have given you keywords to describe what your choreography brings up in them. Describe only one sentence that integrates all of the actions for the dance mde up of the inputs".concat(allTexts)
           }],
         });
   
