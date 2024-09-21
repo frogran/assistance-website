@@ -68,6 +68,24 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function updatePrepromptButtons(preprompts) {
+        const prepromptButtonsDiv = document.getElementById('preprompt-buttons');
+        prepromptButtonsDiv.innerHTML = '';
+
+        preprompts.forEach(preprompt => {
+            const button = document.createElement('button');
+            button.innerText = preprompt.text;
+            button.classList.add('preprompt-button');
+            if (preprompt.id === selectedPreprompt) {
+            button.classList.add('selected');
+            }
+            button.addEventListener('click', () => {
+            selectPreprompt(preprompt.id);
+            });
+            prepromptButtonsDiv.appendChild(button);
+        });
+    }
+
     function selectPreprompt(prepromptId) {
         fetch('/select-preprompt', {
             method: 'POST',
@@ -84,73 +102,57 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function updatePrepromptButtons(preprompts) {
-        const prepromptButtonsDiv = document.getElementById('preprompt-buttons');
-        prepromptButtonsDiv.innerHTML = '';
-
-        preprompts.forEach(preprompt => {
-            const button = document.createElement('button');
-            button.innerText = preprompt.text;
-            button.classList.add('preprompt-button');
-            if (preprompt.id === selectedPreprompt) {
-                button.classList.add('selected');
-            }
-            button.addEventListener('click', () => {
-                selectPreprompt(preprompt.id);
-            });
-            prepromptButtonsDiv.appendChild(button);
-        });
-    }
 
     // Modify the polling function to include preprompts
     function pollForUpdates() {
         fetch(`/get-updates?userId=${encodeURIComponent(userId)}`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Server responded with status ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                updateCollectedTexts(data);
-                updatePageWithAIOutput(data);
-                updateAdminMessages(data);
-                selectedPreprompt = data.selectedPreprompt;
-                updatePrepromptButtons(data.preprompts);
-            })
-            .catch(error => console.error('Error fetching updates:', error));
-    }
-
-    function sendAdminMessage(message) {
-        fetch('/send-admin-message', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message })
-        }).then(response => {
+          .then(response => {
             if (!response.ok) {
-                return response.json().then(errorData => {
-                    throw new Error(errorData.error || 'Unknown error');
-                });
+              throw new Error(`Server responded with status ${response.status}`);
             }
             return response.json();
+          })
+          .then(data => {
+            updateCollectedTexts(data);
+            updatePageWithAIOutput(data);
+            updateAdminMessages(data);
+            selectedPreprompt = data.selectedPreprompt;
+            updatePrepromptButtons(data.preprompts);
+          })
+          .catch(error => console.error('Error fetching updates:', error));
+    }
+      
+    function sendAdminMessage(message) {
+        fetch('/send-admin-message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message })
+        }).then(response => {
+          if (!response.ok) {
+            return response.json().then(errorData => {
+              throw new Error(errorData.error || 'Unknown error');
+            });
+          }
+          return response.json();
         })
         .then(data => {
-            // Optionally handle success
+          // Optionally handle success
+          console.log('Admin message sent:', data);
         })
         .catch(error => {
-            console.error('Error:', error);
-            alert('Error: ' + error.message);
+          console.error('Error:', error);
+          alert('Error: ' + error.message);
         });
     }
-
+      
     function updateAdminMessages(data) {
         const adminMessagesDiv = document.getElementById('admin-messages');
         if (data.adminMessages && data.adminMessages.length > 0) {
-            // Display the latest admin message
-            const latestAdminMessage = data.adminMessages[data.adminMessages.length - 1];
-            adminMessagesDiv.innerHTML = `<p><strong>Admin Message:</strong> ${latestAdminMessage.message}</p>`;
+          // Display the latest admin message
+          const latestAdminMessage = data.adminMessages[data.adminMessages.length - 1];
+          adminMessagesDiv.innerHTML = `<p><strong>Admin Message:</strong> ${latestAdminMessage.message}</p>`;
         } else {
-            adminMessagesDiv.innerHTML = '';
+          adminMessagesDiv.innerHTML = '';
         }
     }
 
@@ -200,17 +202,20 @@ function pickExtremeSubmission() {
 
 function updateCollectedTexts(data) {
     const collectedTextsDiv = document.getElementById('collected-texts');
-    if (data.submissions) {
-        // Reverse the submissions array to display newest first
-        const submissions = data.submissions.slice().reverse();
-
-        collectedTextsDiv.innerHTML = submissions.map(item => {
-            const isProcessed = item.timestamp <= data.lastProcessedTimestamp;
-            const className = isProcessed ? 'processed' : '';
-            return `<p class="${className}">${item.text}</p>`;
-        }).join('');
+    if (data.submissions && data.submissions.length > 0) {
+      // Reverse the submissions array to display newest first
+      const submissions = data.submissions.slice().reverse();
+  
+      collectedTextsDiv.innerHTML = submissions.map(item => {
+        const isProcessed = item.timestamp <= data.lastProcessedTimestamp;
+        const className = isProcessed ? 'processed' : '';
+        return `<p class="${className}">${item.text}</p>`;
+      }).join('');
+    } else {
+      collectedTextsDiv.innerHTML = '<p>No submissions yet.</p>';
     }
-}
+  }
+  
 
 
 function updatePageWithAIOutput(data) {

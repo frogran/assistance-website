@@ -225,8 +225,8 @@ app.post('/send-admin-message', async (req, res) => {
     // Save the admin message to the database
     const adminMessageRef = db.ref('adminMessages').push();
     await adminMessageRef.set({
-        message,
-        timestamp: Date.now(),
+      message,
+      timestamp: Date.now(),
     });
 
     res.json({ message: 'Admin message sent successfully' });
@@ -298,69 +298,79 @@ app.post('/select-preprompt', async (req, res) => {
 // server.js
 
 app.get('/get-updates', async (req, res) => {
-    try {
-      const userId = req.query.userId;
-      const currentTime = Date.now();
-  
-      // Update user's last active timestamp
-      await db.ref(`userActivity/${userId}`).set({
-        lastActive: currentTime,
-      });
-  
-      // Fetch submissions
-      const submissionsRef = db.ref('submissions');
-      const submissionsSnapshot = await submissionsRef.once('value');
-      const submissions = [];
-      submissionsSnapshot.forEach(childSnapshot => {
-        const submission = childSnapshot.val();
-        submissions.push(submission);
-      });
-  
-      // Fetch the latest AI output
-      const aiOutputsRef = db.ref('aiOutputs');
-      const aiOutputsSnapshot = await aiOutputsRef.orderByChild('timestamp').limitToLast(1).once('value');
-      let aiOutputContent = null;
-      let recipientUserId = null;
-  
-      aiOutputsSnapshot.forEach(childSnapshot => {
-        const aiOutput = childSnapshot.val();
-        recipientUserId = aiOutput.recipientUserId || null;
-        if (recipientUserId === userId) {
-          aiOutputContent = aiOutput.output;
-        }
-      });
-  
-      // Get the last processed timestamp
-      const metaRef = db.ref('meta');
-      const metaSnapshot = await metaRef.once('value');
-      let lastProcessedTimestamp = metaSnapshot.child('lastProcessedTimestamp').val() || 0;
-      const prepromptsSnapshot = await db.ref('preprompts').once('value');
-      const preprompts = [];
-      prepromptsSnapshot.forEach(childSnapshot => {
-          preprompts.push({
-              id: childSnapshot.key,
-              text: childSnapshot.val().text,
-          });
-      });
+  try {
+    const userId = req.query.userId; // Get userId from query parameter
+    const currentTime = Date.now();
 
-      // Fetch selected preprompt
-      const selectedPrepromptSnapshot = await db.ref('selectedPreprompt').once('value');
-      const selectedPreprompt = selectedPrepromptSnapshot.val() || null;
+    // Update user's last active timestamp
+    await db.ref(`userActivity/${userId}`).set({
+      lastActive: currentTime,
+    });
 
-      res.json({
-          submissions,
-          aiOutputContent,
-          recipientUserId,
-          lastProcessedTimestamp,
-          adminMessages,
-          preprompts,
-          selectedPreprompt
+    // Fetch submissions and AI outputs as before
+    const submissionsRef = db.ref('submissions');
+    const submissionsSnapshot = await submissionsRef.once('value');
+    const submissions = [];
+    submissionsSnapshot.forEach(childSnapshot => {
+      const submission = childSnapshot.val();
+      submissions.push(submission);
+    });
+
+    const aiOutputsRef = db.ref('aiOutputs');
+    const aiOutputsSnapshot = await aiOutputsRef.orderByChild('timestamp').limitToLast(1).once('value');
+    let aiOutputContent = null;
+    let recipientUserId = null;
+
+    aiOutputsSnapshot.forEach(childSnapshot => {
+      const aiOutput = childSnapshot.val();
+      recipientUserId = aiOutput.recipientUserId || null;
+      if (recipientUserId === userId) {
+        aiOutputContent = aiOutput.output;
+      }
+    });
+
+    // Get the last processed timestamp
+    const metaRef = db.ref('meta');
+    const metaSnapshot = await metaRef.once('value');
+    let lastProcessedTimestamp = metaSnapshot.child('lastProcessedTimestamp').val() || 0;
+
+    // **Fetch admin messages**
+    const adminMessagesRef = db.ref('adminMessages');
+    const adminMessagesSnapshot = await adminMessagesRef.once('value');
+    const adminMessages = [];
+    adminMessagesSnapshot.forEach(childSnapshot => {
+      const adminMessage = childSnapshot.val();
+      adminMessages.push(adminMessage);
+    });
+
+    // **Fetch preprompts**
+    const prepromptsSnapshot = await db.ref('preprompts').once('value');
+    const preprompts = [];
+    prepromptsSnapshot.forEach(childSnapshot => {
+      preprompts.push({
+        id: childSnapshot.key,
+        text: childSnapshot.val().text,
       });
-    } catch (error) {
-      console.error('Error fetching updates from database:', error);
-      res.status(500).json({ error: 'Failed to fetch updates' });
-    }
-  });
+    });
+
+    // **Fetch selected preprompt**
+    const selectedPrepromptSnapshot = await db.ref('selectedPreprompt').once('value');
+    const selectedPreprompt = selectedPrepromptSnapshot.val() || null;
+
+    res.json({
+      submissions,
+      aiOutputContent,
+      recipientUserId,
+      lastProcessedTimestamp,
+      adminMessages,
+      preprompts,
+      selectedPreprompt
+    });
+  } catch (error) {
+    console.error('Error fetching updates from database:', error);
+    res.status(500).json({ error: 'Failed to fetch updates' });
+  }
+});
   
   
 
