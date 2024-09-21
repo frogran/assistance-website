@@ -4,22 +4,26 @@
     <meta charset="UTF-8">
     <title>Text Submission Website</title>
     <link rel="stylesheet" href="styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
     <div id="app">
         <h1>Submit Your Text</h1>
         <div id="user-info">Your ID: <span id="user-id"></span></div>
         
-        <!-- AI Output Display Section -->
-        <div id="ai-output" style="margin-bottom: 20px;"></div>
+        <div id="ai-output"></div>
+        <div id="recipient-info"></div>
 
-
-        <div id="recipient-info" style="font-weight: bold; margin-top: 10px;"></div>
+        <div id="extreme-output"></div>
 
         <textarea id="text-input" placeholder="Enter your text here..."></textarea>
-        <button id="submit-button">Submit</button>
-        <button id="send-button">Send to OpenAI</button> 
-        <button id="pick-extreme-button">Pick Extreme</button> <!-- New button -->
+
+        <div id="button-container">
+            <button id="submit-button">Submit</button>
+            <button id="send-button">Send to OpenAI</button> 
+            <button id="pick-extreme-button">Pick Extreme</button>
+        </div>
+        
         <h2>Collected Texts</h2>
         <div id="collected-texts"></div>
     </div>

@@ -97,9 +97,9 @@ function updateCollectedTexts(data) {
     const collectedTextsDiv = document.getElementById('collected-texts');
     if (data.submissions) {
         collectedTextsDiv.innerHTML = data.submissions.map(item => {
-          const isProcessed = item.timestamp <= data.lastProcessedTimestamp;
-          const style = isProcessed ? 'style="color: gray;"' : '';
-          return `<p ${style}>${item.text}</p>`;
+            const isProcessed = item.timestamp <= data.lastProcessedTimestamp;
+            const className = isProcessed ? 'processed' : '';
+            return `<p class="${className}">${item.text}</p>`;
         }).join('');
     }
 }
