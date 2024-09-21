@@ -93,7 +93,7 @@ app.post('/send-to-openai', async (req, res) => {
           model: "gpt-4o-mini",
           messages: [{
             "role": "user",
-            "content": "You are a blind choreographer. Helpers have given you keywords to describe what your choreography brings up in them. Describe only one sentence that integrates all of the actions for the dance made up of the inputs. There is only a single dancer. Talk directly to the dancer. Helper's words:".concat(allTexts)
+            "content": `${prepromptText}${allTexts}`
           }],
         });
   
@@ -144,7 +144,7 @@ app.post('/send-to-openai', async (req, res) => {
     }
   });
 
-  app.post('/pick-extreme', async (req, res) => {
+app.post('/pick-extreme', async (req, res) => {
     try {
       // Get the last processed timestamp for 'extreme' picks
       const metaRef = db.ref('meta');
@@ -206,6 +206,82 @@ app.post('/send-to-openai', async (req, res) => {
     }
   });
   
+app.post('/send-admin-message', async (req, res) => {
+  try {
+    const { message } = req.body;
+    console.log('Admin message received:', message);
+
+    // Save the admin message to the database
+    const adminMessageRef = db.ref('adminMessages').push();
+    await adminMessageRef.set({
+        message,
+        timestamp: Date.now(),
+    });
+
+    res.json({ message: 'Admin message sent successfully' });
+  } catch (error) {
+    console.error('Error in /send-admin-message:', error);
+    res.status(500).json({ error: 'Failed to send admin message' });
+  }
+});
+
+app.post('/add-preprompt', async (req, res) => {
+  try {
+      const { prepromptText } = req.body;
+      console.log('Preprompt added:', prepromptText);
+
+      // Save the preprompt to the database
+      const prepromptRef = db.ref('preprompts').push();
+      await prepromptRef.set({
+          text: prepromptText,
+          timestamp: Date.now(),
+      });
+
+      // Fetch updated list of preprompts
+      const prepromptsSnapshot = await db.ref('preprompts').once('value');
+      const preprompts = [];
+      prepromptsSnapshot.forEach(childSnapshot => {
+          preprompts.push({
+              id: childSnapshot.key,
+              text: childSnapshot.val().text,
+          });
+      });
+
+      res.json({ preprompts });
+  } catch (error) {
+      console.error('Error in /add-preprompt:', error);
+      res.status(500).json({ error: 'Failed to add preprompt' });
+  }
+});
+
+// Endpoint to select a preprompt
+app.post('/select-preprompt', async (req, res) => {
+  try {
+      const { prepromptId } = req.body;
+      console.log('Preprompt selected:', prepromptId);
+
+      // Save the selected preprompt ID to the database
+      await db.ref('selectedPreprompt').set(prepromptId);
+
+      // Fetch the selected preprompt
+      const selectedPreprompt = prepromptId;
+
+      // Fetch updated list of preprompts
+      const prepromptsSnapshot = await db.ref('preprompts').once('value');
+      const preprompts = [];
+      prepromptsSnapshot.forEach(childSnapshot => {
+          preprompts.push({
+              id: childSnapshot.key,
+              text: childSnapshot.val().text,
+          });
+      });
+
+      res.json({ preprompts, selectedPreprompt });
+  } catch (error) {
+      console.error('Error in /select-preprompt:', error);
+      res.status(500).json({ error: 'Failed to select preprompt' });
+  }
+});
 
 // Endpoint to get updates
 // server.js
@@ -247,8 +323,28 @@ app.get('/get-updates', async (req, res) => {
       const metaRef = db.ref('meta');
       const metaSnapshot = await metaRef.once('value');
       let lastProcessedTimestamp = metaSnapshot.child('lastProcessedTimestamp').val() || 0;
-  
-      res.json({ submissions, aiOutputContent, recipientUserId, lastProcessedTimestamp });
+      const prepromptsSnapshot = await db.ref('preprompts').once('value');
+      const preprompts = [];
+      prepromptsSnapshot.forEach(childSnapshot => {
+          preprompts.push({
+              id: childSnapshot.key,
+              text: childSnapshot.val().text,
+          });
+      });
+
+      // Fetch selected preprompt
+      const selectedPrepromptSnapshot = await db.ref('selectedPreprompt').once('value');
+      const selectedPreprompt = selectedPrepromptSnapshot.val() || null;
+
+      res.json({
+          submissions,
+          aiOutputContent,
+          recipientUserId,
+          lastProcessedTimestamp,
+          adminMessages,
+          preprompts,
+          selectedPreprompt
+      });
     } catch (error) {
       console.error('Error fetching updates from database:', error);
       res.status(500).json({ error: 'Failed to fetch updates' });

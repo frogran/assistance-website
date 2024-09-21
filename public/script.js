@@ -16,6 +16,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const submitButton = document.getElementById('submit-button');
     const sendButton = document.getElementById('send-button');
     const pickExtremeButton = document.getElementById('pick-extreme-button');
+    const sendAllButton = document.getElementById('send-all-button');
+    const addPrepromptButton = document.getElementById('add-preprompt-button');
+
+    addPrepromptButton.addEventListener('click', () => {
+        const prepromptInput = document.getElementById('preprompt-input').value;
+        if (prepromptInput.trim()) {
+            addPreprompt(prepromptInput);
+            document.getElementById('preprompt-input').value = ''; // Clear input field
+        }
+    });
+
+    sendAllButton.addEventListener('click', () => {
+        const messageInput = document.getElementById('admin-message-input').value;
+        if (messageInput.trim()) {
+            sendAdminMessage(messageInput);
+            document.getElementById('admin-message-input').value = ''; // Clear input field
+        }
+    });
 
     submitButton.addEventListener('click', () => {
         const textInput = document.getElementById('text-input').value;
@@ -33,7 +51,58 @@ document.addEventListener('DOMContentLoaded', () => {
         pickExtremeSubmission(); // Function to handle picking extreme submission
     });
 
-    // Polling function to get updates from the server
+    let selectedPreprompt = null;
+
+    function addPreprompt(prepromptText) {
+        fetch('/add-preprompt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prepromptText })
+        }).then(response => response.json())
+        .then(data => {
+            updatePrepromptButtons(data.preprompts);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error: ' + error.message);
+        });
+    }
+
+    function selectPreprompt(prepromptId) {
+        fetch('/select-preprompt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prepromptId })
+        }).then(response => response.json())
+        .then(data => {
+            selectedPreprompt = data.selectedPreprompt;
+            updatePrepromptButtons(data.preprompts);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error: ' + error.message);
+        });
+    }
+
+    function updatePrepromptButtons(preprompts) {
+        const prepromptButtonsDiv = document.getElementById('preprompt-buttons');
+        prepromptButtonsDiv.innerHTML = '';
+
+        preprompts.forEach(preprompt => {
+            const button = document.createElement('button');
+            button.innerText = preprompt.text;
+            button.classList.add('preprompt-button');
+            if (preprompt.id === selectedPreprompt) {
+                button.classList.add('selected');
+            }
+            button.addEventListener('click', () => {
+                selectPreprompt(preprompt.id);
+            });
+            prepromptButtonsDiv.appendChild(button);
+        });
+    }
+
+    // Modify the polling function to include preprompts
     function pollForUpdates() {
         fetch(`/get-updates?userId=${encodeURIComponent(userId)}`)
             .then(response => {
@@ -45,12 +114,48 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(data => {
                 updateCollectedTexts(data);
                 updatePageWithAIOutput(data);
+                updateAdminMessages(data);
+                selectedPreprompt = data.selectedPreprompt;
+                updatePrepromptButtons(data.preprompts);
             })
             .catch(error => console.error('Error fetching updates:', error));
     }
 
+    function sendAdminMessage(message) {
+        fetch('/send-admin-message', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message })
+        }).then(response => {
+            if (!response.ok) {
+                return response.json().then(errorData => {
+                    throw new Error(errorData.error || 'Unknown error');
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Optionally handle success
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error: ' + error.message);
+        });
+    }
+
+    function updateAdminMessages(data) {
+        const adminMessagesDiv = document.getElementById('admin-messages');
+        if (data.adminMessages && data.adminMessages.length > 0) {
+            // Display the latest admin message
+            const latestAdminMessage = data.adminMessages[data.adminMessages.length - 1];
+            adminMessagesDiv.innerHTML = `<p><strong>Admin Message:</strong> ${latestAdminMessage.message}</p>`;
+        } else {
+            adminMessagesDiv.innerHTML = '';
+        }
+    }
+
     // Start polling every 5 seconds
-    setInterval(pollForUpdates, 5000);
+    setInterval(pollForUpdates, 4000);
 });
 
 function submitText(text, userId) {
@@ -96,13 +201,17 @@ function pickExtremeSubmission() {
 function updateCollectedTexts(data) {
     const collectedTextsDiv = document.getElementById('collected-texts');
     if (data.submissions) {
-        collectedTextsDiv.innerHTML = data.submissions.map(item => {
+        // Reverse the submissions array to display newest first
+        const submissions = data.submissions.slice().reverse();
+
+        collectedTextsDiv.innerHTML = submissions.map(item => {
             const isProcessed = item.timestamp <= data.lastProcessedTimestamp;
             const className = isProcessed ? 'processed' : '';
             return `<p class="${className}">${item.text}</p>`;
         }).join('');
     }
 }
+
 
 function updatePageWithAIOutput(data) {
     const aiOutputDiv = document.getElementById('ai-output');
