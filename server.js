@@ -85,6 +85,17 @@ app.post('/send-to-openai', async (req, res) => {
       });
   
       if (submissions.length > 0) {
+        // Fetch selected preprompt
+        const selectedPrepromptSnapshot = await db.ref('selectedPreprompt').once('value');
+        const selectedPrepromptId = selectedPrepromptSnapshot.val();
+
+        let prepromptText = '';
+        if (selectedPrepromptId) {
+            const prepromptSnapshot = await db.ref(`preprompts/${selectedPrepromptId}`).once('value');
+            prepromptText = prepromptSnapshot.val().text;
+        } else {
+            prepromptText = ''; // Default preprompt if none selected
+        }
         // Concatenate all texts
         const allTexts = submissions.map(submission => submission.text).join(' ');
   
