@@ -71,21 +71,21 @@ document.addEventListener('DOMContentLoaded', () => {
     function updatePrepromptButtons(preprompts) {
         const prepromptButtonsDiv = document.getElementById('preprompt-buttons');
         prepromptButtonsDiv.innerHTML = '';
-
+    
         preprompts.forEach(preprompt => {
             const button = document.createElement('button');
             button.innerText = preprompt.text;
             button.classList.add('preprompt-button');
             if (preprompt.id === selectedPreprompt) {
-            button.classList.add('selected');
+                button.classList.add('selected');
             }
             button.addEventListener('click', () => {
-            selectPreprompt(preprompt.id);
+                selectPreprompt(preprompt.id);
             });
             prepromptButtonsDiv.appendChild(button);
         });
     }
-
+    
     function selectPreprompt(prepromptId) {
         fetch('/select-preprompt', {
             method: 'POST',
@@ -106,21 +106,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // Modify the polling function to include preprompts
     function pollForUpdates() {
         fetch(`/get-updates?userId=${encodeURIComponent(userId)}`)
-          .then(response => {
-            if (!response.ok) {
-              throw new Error(`Server responded with status ${response.status}`);
-            }
-            return response.json();
-          })
-          .then(data => {
-            updateCollectedTexts(data);
-            updatePageWithAIOutput(data);
-            updateAdminMessages(data);
-            selectedPreprompt = data.selectedPreprompt;
-            updatePrepromptButtons(data.preprompts);
-          })
-          .catch(error => console.error('Error fetching updates:', error));
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Server responded with status ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                selectedPreprompt = data.selectedPreprompt;
+                updatePrepromptButtons(data.preprompts);
+                updateCollectedTexts(data);
+                updatePageWithAIOutput(data);
+                updateAdminMessages(data);
+            })
+            .catch(error => console.error('Error fetching updates:', error));
     }
+    
       
     function sendAdminMessage(message) {
         fetch('/send-admin-message', {
@@ -223,7 +224,11 @@ function updatePageWithAIOutput(data) {
     const recipientInfoDiv = document.getElementById('recipient-info');
     const userId = localStorage.getItem('userId');
 
-    if (data.aiOutputContent) {
+    if (data.adminMessage && data.adminMessage.message) {
+        // Display the admin message in the ai-output section
+        aiOutputDiv.innerHTML = `<p>${data.adminMessage.message}</p>`;
+        recipientInfoDiv.innerText = 'Admin Message';
+    } else if (data.aiOutputContent) {
         // The AI output is sent to this user
         aiOutputDiv.innerHTML = data.aiOutputContent.split('\n').map(line => `<p>${line}</p>`).join('');
         recipientInfoDiv.innerText = `AI output sent to you (${userId})`;
@@ -232,10 +237,12 @@ function updatePageWithAIOutput(data) {
         recipientInfoDiv.innerText = `AI output sent to: ${data.recipientUserId}`;
         aiOutputDiv.innerHTML = '';
     } else {
+        // No AI output or admin message
         recipientInfoDiv.innerText = '';
         aiOutputDiv.innerHTML = '';
     }
 }
+
 
 function updateExtremeSubmission(data) {
     const extremeOutputDiv = document.getElementById('extreme-output');

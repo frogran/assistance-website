@@ -120,9 +120,14 @@ button:active {
 .preprompt-button {
     margin: 0.2rem;
     padding: 0.5rem;
+    background-color: #f0f0f0; /* Default background */
+    border: 1px solid #908e8e;
+    border-radius: 4px;
+    cursor: pointer;
 }
 
 .preprompt-button.selected {
-    background-color: #28a745;
-    color: #fff;
+    background-color: #007BFF; /* Highlight color */
+    color: #cc6060;
+    border-color: #0056b3;
 }
