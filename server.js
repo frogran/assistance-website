@@ -30,6 +30,18 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: 0, // Set maxAge to 0 to prevent caching
+}));
+
+// Middleware to set Cache-Control headers
+app.use((req, res, next) => {
+  if (req.url.startsWith('/public')) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  }
+  next();
+});
+
 // Endpoint to submit text
 app.post('/submit-text', async (req, res) => {
   try {

@@ -13,7 +13,7 @@ body {
 #app {
     width: 60%;
     background: white;
-    padding: 1rem;
+    padding: 0.5rem;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     max-width: 600px;
@@ -44,7 +44,7 @@ h2 {
 /* Textarea */
 #text-input {
     width: 100%;
-    height: 100px;
+    height: 80px;
     padding: 0.5rem;
     font-size: 1rem;
     box-sizing: border-box;
@@ -53,7 +53,7 @@ h2 {
 
 /* Buttons */
 button {
-    padding: 0.75rem;
+    padding: 1rem;
     font-size: 1rem;
     cursor: pointer;
     border: none;
@@ -100,9 +100,13 @@ button:active {
     margin-top: 1rem;
 }
 
-#collected-texts p {
-    margin: 0.5rem 0;
-    font-size: 1rem;
+#collected-texts {
+    margin-top: 1rem;
+    max-height: 200px; /* Adjust as needed */
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    padding: 0.5rem;
+    background-color: #f9f9f9;
 }
 
 /* AI Output and Recipient Info */
