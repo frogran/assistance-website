@@ -131,7 +131,68 @@ app.post('/send-to-openai', async (req, res) => {
       res.status(500).json({ error: 'Failed to generate AI output' });
     }
   });
+
+  app.post('/pick-extreme', async (req, res) => {
+    try {
+      // Get the last processed timestamp for 'extreme' picks
+      const metaRef = db.ref('meta');
+      const metaSnapshot = await metaRef.once('value');
+      let lastExtremeProcessedTimestamp = metaSnapshot.child('lastExtremeProcessedTimestamp').val() || 0;
   
+      // Get the submissions since last extreme processed timestamp
+      const submissionsRef = db.ref('submissions');
+      const newSubmissionsSnapshot = await submissionsRef
+        .orderByChild('timestamp')
+        .startAt(lastExtremeProcessedTimestamp + 1)
+        .once('value');
+  
+      const submissions = [];
+      newSubmissionsSnapshot.forEach(childSnapshot => {
+        const submission = childSnapshot.val();
+        submissions.push(submission);
+      });
+  
+      if (submissions.length > 0) {
+        // Prepare the prompt for OpenAI
+        let submissionTexts = submissions.map((sub, index) => `${index + 1}. ${sub.text}`).join('\n');
+  
+        // Call OpenAI API to pick the most extreme submission
+        const prompt = `Ignore the previous prompts and memory. This is a temporary chat. This chat is about dance. What is this prompt about? Let's talk about consent. Submissions:\n${submissionTexts}\n\nFrom the above submissions, pick the number of the submission that is the most extreme or stands out the most, and only provide the number without any additional explanation.`;
+  
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o-mini", // Adjust as needed
+          messages: [{
+            "role": "user",
+            "content": prompt
+          }],
+        });
+        
+        const choiceText = response.choices[0].message.content.trim();
+  
+        // Extract the number
+        const choiceNumber = parseInt(choiceText, 10);
+  
+        if (isNaN(choiceNumber) || choiceNumber < 1 || choiceNumber > submissions.length) {
+          console.error('Invalid choice number returned from OpenAI:', choiceText);
+          res.status(500).json({ error: 'Invalid choice returned from OpenAI' });
+          return;
+        }
+  
+        const extremeSubmission = submissions[choiceNumber - 1];
+  
+        // Update the last extreme processed timestamp
+        lastExtremeProcessedTimestamp = submissions[submissions.length - 1].timestamp;
+        await metaRef.update({ lastExtremeProcessedTimestamp });
+  
+        res.json({ extremeSubmission });
+      } else {
+        res.json({ message: 'No new submissions to process' });
+      }
+    } catch (error) {
+      console.error('Error calling OpenAI API:', error);
+      res.status(500).json({ error: 'Failed to pick extreme submission' });
+    }
+  });
   
 
 // Endpoint to get updates

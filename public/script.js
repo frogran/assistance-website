@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const submitButton = document.getElementById('submit-button');
     const sendButton = document.getElementById('send-button');
+    const pickExtremeButton = document.getElementById('pick-extreme-button');
 
     submitButton.addEventListener('click', () => {
         const textInput = document.getElementById('text-input').value;
@@ -26,6 +27,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     sendButton.addEventListener('click', () => {
         sendToOpenAI(); // Function to handle sending all collected texts
+    });
+
+    pickExtremeButton.addEventListener('click', () => {
+        pickExtremeSubmission(); // Function to handle picking extreme submission
     });
 
     // Polling function to get updates from the server
@@ -40,12 +45,9 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(data => {
                 updateCollectedTexts(data);
                 updatePageWithAIOutput(data);
-                updateRecipientUser(data.recipientUserId);
             })
             .catch(error => console.error('Error fetching updates:', error));
     }
-
-
 
     // Start polling every 5 seconds
     setInterval(pollForUpdates, 5000);
@@ -58,7 +60,6 @@ function submitText(text, userId) {
         body: JSON.stringify({ text, userId })
     }).then(response => {
         if (!response.ok) {
-            // Check for non-2xx status codes
             return response.json().then(errorData => {
                 throw new Error(errorData.error || 'Unknown error');
             });
@@ -70,7 +71,7 @@ function submitText(text, userId) {
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Error: ' + error.message); // Display a user-friendly error message
+        alert('Error: ' + error.message);
     });
 }
 
@@ -83,45 +84,52 @@ function sendToOpenAI() {
       .catch(error => console.error('Error:', error));
 }
 
+function pickExtremeSubmission() {
+    fetch('/pick-extreme', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    }).then(response => response.json())
+      .then(data => updateExtremeSubmission(data))
+      .catch(error => console.error('Error:', error));
+}
 
 function updateCollectedTexts(data) {
     const collectedTextsDiv = document.getElementById('collected-texts');
     if (data.submissions) {
-      collectedTextsDiv.innerHTML = data.submissions.map(item => {
-        const isProcessed = item.timestamp <= data.lastProcessedTimestamp;
-        const style = isProcessed ? 'style="color: gray;"' : '';
-        return `<p ${style}>${item.text}</p>`;
-      }).join('');
+        collectedTextsDiv.innerHTML = data.submissions.map(item => {
+          const isProcessed = item.timestamp <= data.lastProcessedTimestamp;
+          const style = isProcessed ? 'style="color: gray;"' : '';
+          return `<p ${style}>${item.text}</p>`;
+        }).join('');
     }
-  }
-  
-
-// script.js
+}
 
 function updatePageWithAIOutput(data) {
     const aiOutputDiv = document.getElementById('ai-output');
     const recipientInfoDiv = document.getElementById('recipient-info');
     const userId = localStorage.getItem('userId');
-  
-    if (data.aiOutputContent) {
-      // The AI output is sent to this user
-      aiOutputDiv.innerHTML = data.aiOutputContent.split('\n').map(line => `<p>${line}</p>`).join('');
-      recipientInfoDiv.innerText = `AI output sent to you (${userId})`;
-    } else if (data.recipientUserId) {
-      // AI output was sent to someone else
-      recipientInfoDiv.innerText = `AI output sent to: ${data.recipientUserId}`;
-      aiOutputDiv.innerHTML = ''; // Clear any previous AI output
-    } else {
-      // No AI output yet
-      recipientInfoDiv.innerText = '';
-      aiOutputDiv.innerHTML = '';
-    }
-  }
-  
 
-function updateRecipientUser(recipientUserId) {
-    if (recipientUserId) {
-        const recipientInfoDiv = document.getElementById('recipient-info');
-        recipientInfoDiv.innerText = `AI output sent to: ${recipientUserId}`;
+    if (data.aiOutputContent) {
+        // The AI output is sent to this user
+        aiOutputDiv.innerHTML = data.aiOutputContent.split('\n').map(line => `<p>${line}</p>`).join('');
+        recipientInfoDiv.innerText = `AI output sent to you (${userId})`;
+    } else if (data.recipientUserId) {
+        // AI output was sent to someone else
+        recipientInfoDiv.innerText = `AI output sent to: ${data.recipientUserId}`;
+        aiOutputDiv.innerHTML = '';
+    } else {
+        recipientInfoDiv.innerText = '';
+        aiOutputDiv.innerHTML = '';
+    }
+}
+
+function updateExtremeSubmission(data) {
+    const extremeOutputDiv = document.getElementById('extreme-output');
+    if (data.extremeSubmission) {
+        extremeOutputDiv.innerHTML = `<p><strong>Extreme Submission:</strong> ${data.extremeSubmission.text}</p>`;
+    } else if (data.message) {
+        extremeOutputDiv.innerHTML = `<p>${data.message}</p>`;
+    } else {
+        extremeOutputDiv.innerHTML = `<p>Failed to retrieve extreme submission.</p>`;
     }
 }
