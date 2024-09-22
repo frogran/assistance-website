@@ -68,25 +68,27 @@ document.addEventListener('DOMContentLoaded', () => {
     function updatePageWithAIOutput(data) {
         const aiOutputDiv = document.getElementById('ai-output');
         const recipientInfoDiv = document.getElementById('recipient-info');
-
+        const userId = localStorage.getItem('userId');
+    
         if (data.adminMessage && data.adminMessage.message) {
-            // Display the admin message in the ai-output section
-            aiOutputDiv.innerHTML = `<p>${data.adminMessage.message}</p>`;
-            recipientInfoDiv.innerText = 'Admin Message';
+            // Display the admin message with label
+            aiOutputDiv.innerHTML = `<p><strong>Admin Message:</strong></p><p>${data.adminMessage.message}</p>`;
+            recipientInfoDiv.innerText = ''; // Clear recipient info
         } else if (data.aiOutputContent) {
             // The AI output is sent to this user
-            aiOutputDiv.innerHTML = data.aiOutputContent.split('\n').map(line => `<p>${line}</p>`).join('');
-            recipientInfoDiv.innerText = `AI output sent to you (${userId})`;
+            aiOutputDiv.innerHTML = `<p><strong>AI Output:</strong></p>` + data.aiOutputContent.split('\n').map(line => `<p>${line}</p>`).join('');
+            recipientInfoDiv.innerText = ''; // Clear recipient info
         } else if (data.recipientUserId) {
             // AI output was sent to someone else
             recipientInfoDiv.innerText = `AI output sent to: ${data.recipientUserId}`;
-            aiOutputDiv.innerHTML = '';
+            aiOutputDiv.innerHTML = ''; // Clear AI output
         } else {
             // No AI output or admin message
             recipientInfoDiv.innerText = '';
             aiOutputDiv.innerHTML = '';
         }
     }
+    
 
     function updateAdminMessages(data) {
         // Since admin messages are displayed in the ai-output section, this can be left empty or used if needed

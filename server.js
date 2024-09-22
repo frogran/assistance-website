@@ -340,12 +340,47 @@ app.get('/admin-get-updates', async (req, res) => {
           }
       });
 
+      // Fetch AI outputs
+      const aiOutputsRef = db.ref('aiOutputs');
+      const aiOutputsSnapshot = await aiOutputsRef.orderByChild('timestamp').limitToLast(1).once('value');
+      let aiOutputContent = null;
+      let recipientUserId = null;
+      let aiOutputTimestamp = null;
+
+      aiOutputsSnapshot.forEach(childSnapshot => {
+          const aiOutput = childSnapshot.val();
+          recipientUserId = aiOutput.recipientUserId || null;
+          aiOutputContent = aiOutput.output;
+          aiOutputTimestamp = aiOutput.timestamp;
+      });
+
+      // Fetch admin messages
+      const adminMessagesRef = db.ref('adminMessages');
+      const adminMessagesSnapshot = await adminMessagesRef.orderByChild('timestamp').limitToLast(1).once('value');
+      let latestAdminMessage = null;
+      let adminMessageTimestamp = null;
+
+      adminMessagesSnapshot.forEach(childSnapshot => {
+          const adminMessage = childSnapshot.val();
+          latestAdminMessage = adminMessage;
+          adminMessageTimestamp = adminMessage.timestamp;
+      });
+
+      // Determine whether to show the admin message or the AI output
+      let adminMessageToSend = null;
+      if (adminMessageTimestamp && (!aiOutputTimestamp || adminMessageTimestamp > aiOutputTimestamp)) {
+          adminMessageToSend = latestAdminMessage;
+      }
+
       res.json({
           submissions,
           lastProcessedTimestamp,
           preprompts,
           selectedPreprompt,
-          activeUserCount
+          activeUserCount,
+          aiOutputContent,
+          recipientUserId,
+          adminMessage: adminMessageToSend
       });
   } catch (error) {
       console.error('Error fetching admin updates from database:', error);
@@ -356,77 +391,58 @@ app.get('/admin-get-updates', async (req, res) => {
 
 app.get('/get-updates', async (req, res) => {
   try {
-    const userId = req.query.userId; // Get userId from query parameter
-    const currentTime = Date.now();
+      const userId = req.query.userId;
+      const currentTime = Date.now();
 
-    // Update user's last active timestamp
-    await db.ref(`userActivity/${userId}`).set({
-      lastActive: currentTime,
-    });
-
-    // Fetch submissions and AI outputs as before
-    const submissionsRef = db.ref('submissions');
-    const submissionsSnapshot = await submissionsRef.once('value');
-    const submissions = [];
-    submissionsSnapshot.forEach(childSnapshot => {
-      const submission = childSnapshot.val();
-      submissions.push(submission);
-    });
-
-    const aiOutputsRef = db.ref('aiOutputs');
-    const aiOutputsSnapshot = await aiOutputsRef.orderByChild('timestamp').limitToLast(1).once('value');
-    let aiOutputContent = null;
-    let recipientUserId = null;
-
-    aiOutputsSnapshot.forEach(childSnapshot => {
-      const aiOutput = childSnapshot.val();
-      recipientUserId = aiOutput.recipientUserId || null;
-      if (recipientUserId === userId) {
-        aiOutputContent = aiOutput.output;
-      }
-    });
-
-    // Get the last processed timestamp
-    const metaRef = db.ref('meta');
-    const metaSnapshot = await metaRef.once('value');
-    let lastProcessedTimestamp = metaSnapshot.child('lastProcessedTimestamp').val() || 0;
-
-
-    // **Fetch preprompts**
-    const prepromptsSnapshot = await db.ref('preprompts').once('value');
-    const preprompts = [];
-    prepromptsSnapshot.forEach(childSnapshot => {
-      preprompts.push({
-        id: childSnapshot.key,
-        text: childSnapshot.val().text,
+      // Update user's last active timestamp
+      await db.ref(`userActivity/${userId}`).set({
+          lastActive: currentTime,
       });
-    });
 
-    // **Fetch selected preprompt**
-    const selectedPrepromptSnapshot = await db.ref('selectedPreprompt').once('value');
-    const selectedPreprompt = selectedPrepromptSnapshot.val() || null;
+      // Fetch AI outputs
+      const aiOutputsRef = db.ref('aiOutputs');
+      const aiOutputsSnapshot = await aiOutputsRef.orderByChild('timestamp').limitToLast(1).once('value');
+      let aiOutputContent = null;
+      let recipientUserId = null;
+      let aiOutputTimestamp = null;
 
-    const adminMessagesRef = db.ref('adminMessages');
-    const adminMessagesSnapshot = await adminMessagesRef.orderByChild('timestamp').limitToLast(1).once('value');
-    let latestAdminMessage = null;
-    adminMessagesSnapshot.forEach(childSnapshot => {
-        latestAdminMessage = childSnapshot.val();
-    });
+      aiOutputsSnapshot.forEach(childSnapshot => {
+          const aiOutput = childSnapshot.val();
+          recipientUserId = aiOutput.recipientUserId || null;
+          aiOutputContent = aiOutput.output;
+          aiOutputTimestamp = aiOutput.timestamp;
+      });
 
-    res.json({
-        submissions,
-        aiOutputContent,
-        recipientUserId,
-        lastProcessedTimestamp,
-        adminMessage: latestAdminMessage, // Send latest admin message
-        preprompts,
-        selectedPreprompt
-    });
+      // Fetch admin messages
+      const adminMessagesRef = db.ref('adminMessages');
+      const adminMessagesSnapshot = await adminMessagesRef.orderByChild('timestamp').limitToLast(1).once('value');
+      let latestAdminMessage = null;
+      let adminMessageTimestamp = null;
+
+      adminMessagesSnapshot.forEach(childSnapshot => {
+          const adminMessage = childSnapshot.val();
+          latestAdminMessage = adminMessage;
+          adminMessageTimestamp = adminMessage.timestamp;
+      });
+
+      // Determine whether to show the admin message or the AI output
+      // If an AI output was sent after the admin message, do not send the admin message
+      let adminMessageToSend = null;
+      if (adminMessageTimestamp && (!aiOutputTimestamp || adminMessageTimestamp > aiOutputTimestamp)) {
+          adminMessageToSend = latestAdminMessage;
+      }
+
+      res.json({
+          aiOutputContent: (recipientUserId === userId) ? aiOutputContent : null,
+          recipientUserId: (recipientUserId !== userId) ? recipientUserId : null,
+          adminMessage: adminMessageToSend,
+      });
   } catch (error) {
-    console.error('Error fetching updates from database:', error);
-    res.status(500).json({ error: 'Failed to fetch updates' });
+      console.error('Error fetching updates from database:', error);
+      res.status(500).json({ error: 'Failed to fetch updates' });
   }
 });
+
   
   
 

@@ -49,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 updatePrepromptButtons(data.preprompts);
                 selectedPreprompt = data.selectedPreprompt;
                 updateConnectedUsers(data.activeUserCount);
+                updateAdminAIOutput(data); // New function to update AI output/admin message display
             })
             .catch(error => console.error('Error fetching updates:', error));
     }
@@ -178,5 +179,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateConnectedUsers(count) {
         document.getElementById('user-count').innerText = count;
+    }
+
+    function updateAdminAIOutput(data) {
+        const adminAIOutputDiv = document.getElementById('admin-ai-output');
+        const adminRecipientInfoDiv = document.getElementById('admin-recipient-info');
+    
+        if (data.adminMessage && data.adminMessage.message) {
+            // Display the admin message with label
+            adminAIOutputDiv.innerHTML = `<p><strong>Admin Message:</strong></p><p>${data.adminMessage.message}</p>`;
+            adminRecipientInfoDiv.innerText = ''; // Clear recipient info
+        } else if (data.aiOutputContent) {
+            // Display the AI output
+            adminAIOutputDiv.innerHTML = `<p><strong>AI Output:</strong></p>` + data.aiOutputContent.split('\n').map(line => `<p>${line}</p>`).join('');
+            if (data.recipientUserId) {
+                adminRecipientInfoDiv.innerText = `AI output sent to: ${data.recipientUserId}`;
+            } else {
+                adminRecipientInfoDiv.innerText = '';
+            }
+        } else if (data.recipientUserId) {
+            // AI output was sent to someone else (unlikely in admin context, but included for completeness)
+            adminRecipientInfoDiv.innerText = `AI output sent to: ${data.recipientUserId}`;
+            adminAIOutputDiv.innerHTML = '';
+        } else {
+            // No AI output or admin message
+            adminRecipientInfoDiv.innerText = '';
+            adminAIOutputDiv.innerHTML = '';
+        }
     }
 });
