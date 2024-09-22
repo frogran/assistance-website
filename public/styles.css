@@ -122,14 +122,15 @@ button:active {
     padding: 0.5rem;
     background-color: #f0f0f0; /* Default background */
     border: 1px solid #908e8e;
+    color: #000000;
     border-radius: 4px;
     cursor: pointer;
 }
 
 .preprompt-button.selected {
-    background-color: #007BFF; /* Highlight color */
-    color: #cc6060;
-    border-color: #0056b3;
+    background-color: #b970f5; /* Highlight color */
+    color: #000000;
+    border-color: #8f04e0;
 }
 
 /* Existing styles... */
@@ -140,6 +141,6 @@ button:active {
     overflow-y: auto;
     border: 1px solid #ccc;
     padding: 0.5rem;
-    background-color: #f9f9f9;
+    background-color: #999999;
 }
 
