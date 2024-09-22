@@ -297,6 +297,63 @@ app.post('/select-preprompt', async (req, res) => {
 // Endpoint to get updates
 // server.js
 
+// Endpoint to get admin updates
+app.get('/admin-get-updates', async (req, res) => {
+  try {
+      // Fetch submissions
+      const submissionsRef = db.ref('submissions');
+      const submissionsSnapshot = await submissionsRef.once('value');
+      const submissions = [];
+      submissionsSnapshot.forEach(childSnapshot => {
+          const submission = childSnapshot.val();
+          submissions.push(submission);
+      });
+
+      // Get the last processed timestamp
+      const metaRef = db.ref('meta');
+      const metaSnapshot = await metaRef.once('value');
+      let lastProcessedTimestamp = metaSnapshot.child('lastProcessedTimestamp').val() || 0;
+
+      // Fetch preprompts
+      const prepromptsSnapshot = await db.ref('preprompts').once('value');
+      const preprompts = [];
+      prepromptsSnapshot.forEach(childSnapshot => {
+          preprompts.push({
+              id: childSnapshot.key,
+              text: childSnapshot.val().text,
+          });
+      });
+
+      // Fetch selected preprompt
+      const selectedPrepromptSnapshot = await db.ref('selectedPreprompt').once('value');
+      const selectedPreprompt = selectedPrepromptSnapshot.val() || null;
+
+      // Get the number of active users
+      const tenSecondsAgo = Date.now() - 10000;
+      const userActivityRef = db.ref('userActivity');
+      const userActivitySnapshot = await userActivityRef.once('value');
+      let activeUserCount = 0;
+      userActivitySnapshot.forEach(childSnapshot => {
+          const lastActive = childSnapshot.val().lastActive;
+          if (lastActive >= tenSecondsAgo) {
+              activeUserCount += 1;
+          }
+      });
+
+      res.json({
+          submissions,
+          lastProcessedTimestamp,
+          preprompts,
+          selectedPreprompt,
+          activeUserCount
+      });
+  } catch (error) {
+      console.error('Error fetching admin updates from database:', error);
+      res.status(500).json({ error: 'Failed to fetch admin updates' });
+  }
+});
+
+
 app.get('/get-updates', async (req, res) => {
   try {
     const userId = req.query.userId; // Get userId from query parameter
