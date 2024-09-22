@@ -45,11 +45,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 return response.json();
             })
             .then(data => {
+                console.log('Received data:', data); // Add this line for debugging
                 updateCollectedTexts(data);
                 updatePrepromptButtons(data.preprompts);
                 selectedPreprompt = data.selectedPreprompt;
                 updateConnectedUsers(data.activeUserCount);
-                updateAdminAIOutput(data); // New function to update AI output/admin message display
+                updateAdminAIOutput(data); // Update AI output/admin message display
             })
             .catch(error => console.error('Error fetching updates:', error));
     }
@@ -198,7 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 adminRecipientInfoDiv.innerText = '';
             }
         } else if (data.recipientUserId) {
-            // AI output was sent to someone else (unlikely in admin context, but included for completeness)
+            // AI output was sent to someone else (unlikely in admin context)
             adminRecipientInfoDiv.innerText = `AI output sent to: ${data.recipientUserId}`;
             adminAIOutputDiv.innerHTML = '';
         } else {
@@ -207,4 +208,5 @@ document.addEventListener('DOMContentLoaded', () => {
             adminAIOutputDiv.innerHTML = '';
         }
     }
+    
 });
