@@ -63,97 +63,148 @@ app.post('/submit-text', async (req, res) => {
 });
 
 // Endpoint to send collected texts to OpenAI
-
 app.post('/send-to-openai', async (req, res) => {
-    try {
-      // Get the last processed timestamp
-      const metaRef = db.ref('meta');
-      const metaSnapshot = await metaRef.once('value');
-      let lastProcessedTimestamp = metaSnapshot.child('lastProcessedTimestamp').val() || 0;
-  
-      // Get the submissions since last processed timestamp
-      const submissionsRef = db.ref('submissions');
-      const newSubmissionsSnapshot = await submissionsRef
-        .orderByChild('timestamp')
-        .startAt(lastProcessedTimestamp + 1)
-        .once('value');
-  
-      const submissions = [];
-      newSubmissionsSnapshot.forEach(childSnapshot => {
-        const submission = childSnapshot.val();
+  try {
+    // Fetch submissions that haven't been processed yet
+    const submissionsRef = db.ref('submissions');
+    const submissionsSnapshot = await submissionsRef.once('value');
+    const submissions = [];
+    submissionsSnapshot.forEach(childSnapshot => {
+      const submission = childSnapshot.val();
+      if (!submission.processed) {
         submissions.push(submission);
-      });
-  
-      if (submissions.length > 0) {
-        // Fetch selected preprompt
-        const selectedPrepromptSnapshot = await db.ref('selectedPreprompt').once('value');
-        const selectedPrepromptId = selectedPrepromptSnapshot.val();
-
-        let prepromptText = '';
-        if (selectedPrepromptId) {
-            const prepromptSnapshot = await db.ref(`preprompts/${selectedPrepromptId}`).once('value');
-            prepromptText = prepromptSnapshot.val().text;
-        } else {
-            prepromptText = ''; // Default preprompt if none selected
-        }
-        // Concatenate all texts
-        const allTexts = submissions.map(submission => submission.text).join(' ');
-  
-        // Call OpenAI API
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [{
-            "role": "user",
-            "content": `${prepromptText}${allTexts}`
-          }],
-        });
-  
-        const aiOutput = response.choices[0].message.content;
-  
-        console.log(`AI Output: ${aiOutput}`);
-  
-        // Select a random active user
-        const tenSecondsAgo = Date.now() - 10000;
-        const userActivityRef = db.ref('userActivity');
-        const userActivitySnapshot = await userActivityRef.once('value');
-        const activeUsers = [];
-        userActivitySnapshot.forEach(childSnapshot => {
-          const userId = childSnapshot.key;
-          const lastActive = childSnapshot.val().lastActive;
-          if (lastActive >= tenSecondsAgo) {
-            activeUsers.push(userId);
-          }
-        });
-  
-        if (activeUsers.length > 0) {
-          const recipientUserId = activeUsers[Math.floor(Math.random() * activeUsers.length)];
-          console.log(`Sending AI output to: ${recipientUserId}`);
-  
-          // Save AI output along with the recipientUserId
-          const aiOutputRef = db.ref('aiOutputs').push();
-          await aiOutputRef.set({
-            output: aiOutput,
-            timestamp: Date.now(),
-            recipientUserId: recipientUserId,
-          });
-  
-          // Update the last processed timestamp
-          lastProcessedTimestamp = submissions[submissions.length - 1].timestamp;
-          await metaRef.update({ lastProcessedTimestamp });
-  
-          res.json({ submissions, recipientUserId });
-        } else {
-          console.log('No active users to send the AI output to.');
-          res.json({ message: 'No active users to send the AI output to.' });
-        }
-      } else {
-        res.json({ message: 'No texts to send' });
       }
-    } catch (error) {
-      console.error('Error calling OpenAI API:', error);
-      res.status(500).json({ error: 'Failed to generate AI output' });
+    });
+
+    if (submissions.length > 0) {
+      // Fetch selected preprompt
+      const selectedPrepromptSnapshot = await db.ref('selectedPreprompt').once('value');
+      const selectedPrepromptId = selectedPrepromptSnapshot.val();
+
+      let prepromptText = '';
+      if (selectedPrepromptId) {
+        const prepromptSnapshot = await db.ref(`preprompts/${selectedPrepromptId}`).once('value');
+        prepromptText = prepromptSnapshot.val().text;
+      }
+
+      // Concatenate all texts
+      const allTexts = submissions.map(submission => submission.text).join(' ');
+
+      // Call OpenAI API
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{
+          "role": "user",
+          "content": `${prepromptText}${allTexts}`
+        }],
+      });
+
+      const aiOutput = response.choices[0].message.content;
+
+      // Save AI output to the database without sending
+      const aiOutputRef = db.ref('aiOutputs').push();
+      await aiOutputRef.set({
+        output: aiOutput,
+        timestamp: Date.now(),
+        sent: false, // Not sent yet
+      });
+
+      // Mark submissions as processed
+      const lastProcessedTimestamp = Date.now();
+      await db.ref('meta/lastProcessedTimestamp').set(lastProcessedTimestamp);
+      submissions.forEach(async submission => {
+        await db.ref(`submissions/${submission.id}`).update({ processed: true });
+      });
+
+      res.json({ message: 'AI output generated and saved.' });
+    } else {
+      res.json({ message: 'No submissions to process.' });
     }
-  });
+  } catch (error) {
+    console.error('Error generating AI output:', error);
+    res.status(500).json({ error: 'Failed to generate AI output' });
+  }
+});
+
+app.post('/send-ai-output-single', async (req, res) => {
+  try {
+    // Fetch the next unsent AI output
+    const aiOutputsRef = db.ref('aiOutputs');
+    const aiOutputSnapshot = await aiOutputsRef.orderByChild('sent').equalTo(false).limitToFirst(1).once('value');
+
+    if (aiOutputSnapshot.exists()) {
+      let aiOutputKey;
+      let aiOutputData;
+      aiOutputSnapshot.forEach(childSnapshot => {
+        aiOutputKey = childSnapshot.key;
+        aiOutputData = childSnapshot.val();
+      });
+
+      // Fetch active users
+      const tenSecondsAgo = Date.now() - 10000;
+      const userActivityRef = db.ref('userActivity');
+      const userActivitySnapshot = await userActivityRef.once('value');
+      const activeUsers = [];
+      userActivitySnapshot.forEach(childSnapshot => {
+        const lastActive = childSnapshot.val().lastActive;
+        if (lastActive >= tenSecondsAgo) {
+          activeUsers.push(childSnapshot.key);
+        }
+      });
+
+      if (activeUsers.length > 0) {
+        // Select a random active user
+        const recipientUserId = activeUsers[Math.floor(Math.random() * activeUsers.length)];
+
+        // Update the AI output with recipient info
+        await db.ref(`aiOutputs/${aiOutputKey}`).update({
+          sent: true,
+          recipientUserId: recipientUserId,
+          sentToAll: false,
+        });
+
+        res.json({ message: `AI output sent to user ${recipientUserId}` });
+      } else {
+        res.json({ message: 'No active users to send the AI output.' });
+      }
+    } else {
+      res.json({ message: 'No unsent AI outputs available.' });
+    }
+  } catch (error) {
+    console.error('Error sending AI output to single participant:', error);
+    res.status(500).json({ error: 'Failed to send AI output to single participant' });
+  }
+});
+
+app.post('/send-ai-output-all', async (req, res) => {
+  try {
+    // Fetch the next unsent AI output
+    const aiOutputsRef = db.ref('aiOutputs');
+    const aiOutputSnapshot = await aiOutputsRef.orderByChild('sent').equalTo(false).limitToFirst(1).once('value');
+
+    if (aiOutputSnapshot.exists()) {
+      let aiOutputKey;
+      aiOutputSnapshot.forEach(childSnapshot => {
+        aiOutputKey = childSnapshot.key;
+      });
+
+      // Update the AI output as sent to all
+      await db.ref(`aiOutputs/${aiOutputKey}`).update({
+        sent: true,
+        recipientUserId: 'all',
+        sentToAll: true,
+      });
+
+      res.json({ message: 'AI output sent to all participants.' });
+    } else {
+      res.json({ message: 'No unsent AI outputs available.' });
+    }
+  } catch (error) {
+    console.error('Error sending AI output to all participants:', error);
+    res.status(500).json({ error: 'Failed to send AI output to all participants' });
+  }
+});
+
 
 app.post('/pick-extreme', async (req, res) => {
     try {
@@ -341,18 +392,11 @@ app.get('/admin-get-updates', async (req, res) => {
       });
 
       // Fetch AI outputs
-      const aiOutputsRef = db.ref('aiOutputs');
-      const aiOutputsSnapshot = await aiOutputsRef.orderByChild('timestamp').limitToLast(1).once('value');
+
+
       let aiOutputContent = null;
       let recipientUserId = null;
       let aiOutputTimestamp = null;
-
-      aiOutputsSnapshot.forEach(childSnapshot => {
-          const aiOutput = childSnapshot.val();
-          recipientUserId = aiOutput.recipientUserId || null;
-          aiOutputContent = aiOutput.output;
-          aiOutputTimestamp = aiOutput.timestamp;
-      });
 
       // Fetch admin messages
       const adminMessagesRef = db.ref('adminMessages');
@@ -372,76 +416,105 @@ app.get('/admin-get-updates', async (req, res) => {
           adminMessageToSend = latestAdminMessage;
       }
 
+      const aiOutputsRef = db.ref('aiOutputs');
+      const aiOutputsSnapshot = await aiOutputsRef.once('value');
+      const aiOutputs = [];
+      aiOutputsSnapshot.forEach(childSnapshot => {
+        const aiOutput = childSnapshot.val();
+        aiOutputs.push({
+          output: aiOutput.output,
+          timestamp: aiOutput.timestamp,
+          sent: aiOutput.sent,
+          recipientUserId: aiOutput.recipientUserId || null,
+        });
+      });
+
       res.json({
-          submissions,
-          lastProcessedTimestamp,
-          preprompts,
-          selectedPreprompt,
-          activeUserCount,
-          aiOutputContent,
-          recipientUserId,
-          adminMessage: adminMessageToSend
+        submissions,
+        lastProcessedTimestamp,
+        preprompts,
+        selectedPreprompt,
+        activeUserCount,
+        aiOutputContent: latestAiOutput ? latestAiOutput.output : null,
+        recipientUserId: latestAiOutput ? latestAiOutput.recipientUserId : null,
+        adminMessage: adminMessageToSend,
+        aiOutputs, // Include AI outputs
       });
   } catch (error) {
-      console.error('Error fetching admin updates from database:', error);
-      res.status(500).json({ error: 'Failed to fetch admin updates' });
+    console.error('Error fetching admin updates from database:', error);
+    res.status(500).json({ error: 'Failed to fetch admin updates' });
   }
 });
 
 
 app.get('/get-updates', async (req, res) => {
   try {
-      const userId = req.query.userId;
-      const currentTime = Date.now();
+    const userId = req.query.userId;
+    const currentTime = Date.now();
 
-      // Update user's last active timestamp
-      await db.ref(`userActivity/${userId}`).set({
-          lastActive: currentTime,
-      });
+    // Update user's last active timestamp
+    await db.ref(`userActivity/${userId}`).set({
+      lastActive: currentTime,
+    });
 
-      // Fetch AI outputs
-      const aiOutputsRef = db.ref('aiOutputs');
-      const aiOutputsSnapshot = await aiOutputsRef.orderByChild('timestamp').limitToLast(1).once('value');
-      let aiOutputContent = null;
-      let recipientUserId = null;
-      let aiOutputTimestamp = null;
+    // Fetch AI outputs sent to the user or to all participants
+    const aiOutputsRef = db.ref('aiOutputs');
+    const aiOutputsSnapshot = await aiOutputsRef
+      .orderByChild('sent')
+      .equalTo(true)
+      .once('value');
 
-      aiOutputsSnapshot.forEach(childSnapshot => {
-          const aiOutput = childSnapshot.val();
-          recipientUserId = aiOutput.recipientUserId || null;
-          aiOutputContent = aiOutput.output;
-          aiOutputTimestamp = aiOutput.timestamp;
-      });
-
-      // Fetch admin messages
-      const adminMessagesRef = db.ref('adminMessages');
-      const adminMessagesSnapshot = await adminMessagesRef.orderByChild('timestamp').limitToLast(1).once('value');
-      let latestAdminMessage = null;
-      let adminMessageTimestamp = null;
-
-      adminMessagesSnapshot.forEach(childSnapshot => {
-          const adminMessage = childSnapshot.val();
-          latestAdminMessage = adminMessage;
-          adminMessageTimestamp = adminMessage.timestamp;
-      });
-
-      // Determine whether to show the admin message or the AI output
-      // If an AI output was sent after the admin message, do not send the admin message
-      let adminMessageToSend = null;
-      if (adminMessageTimestamp && (!aiOutputTimestamp || adminMessageTimestamp > aiOutputTimestamp)) {
-          adminMessageToSend = latestAdminMessage;
+    let latestAiOutput = null;
+    aiOutputsSnapshot.forEach(childSnapshot => {
+      const aiOutput = childSnapshot.val();
+      if (
+        aiOutput.recipientUserId === userId ||
+        aiOutput.recipientUserId === 'all'
+      ) {
+        if (
+          !latestAiOutput ||
+          aiOutput.timestamp > latestAiOutput.timestamp
+        ) {
+          latestAiOutput = aiOutput;
+        }
       }
+    });
 
-      res.json({
-          aiOutputContent: (recipientUserId === userId) ? aiOutputContent : null,
-          recipientUserId: (recipientUserId !== userId) ? recipientUserId : null,
-          adminMessage: adminMessageToSend,
-      });
+    // Fetch the latest admin message
+    const adminMessagesRef = db.ref('adminMessages');
+    const adminMessagesSnapshot = await adminMessagesRef
+      .orderByChild('timestamp')
+      .limitToLast(1)
+      .once('value');
+    let latestAdminMessage = null;
+    let adminMessageTimestamp = null;
+
+    adminMessagesSnapshot.forEach(childSnapshot => {
+      const adminMessage = childSnapshot.val();
+      latestAdminMessage = adminMessage;
+      adminMessageTimestamp = adminMessage.timestamp;
+    });
+
+    // Determine whether to show the admin message or the AI output
+    let adminMessageToSend = null;
+    if (
+      adminMessageTimestamp &&
+      (!latestAiOutput || adminMessageTimestamp > latestAiOutput.timestamp)
+    ) {
+      adminMessageToSend = latestAdminMessage;
+    }
+
+    res.json({
+      aiOutputContent: latestAiOutput ? latestAiOutput.output : null,
+      recipientUserId: latestAiOutput ? latestAiOutput.recipientUserId : null,
+      adminMessage: adminMessageToSend,
+    });
   } catch (error) {
-      console.error('Error fetching updates from database:', error);
-      res.status(500).json({ error: 'Failed to fetch updates' });
+    console.error('Error fetching updates from database:', error);
+    res.status(500).json({ error: 'Failed to fetch updates' });
   }
 });
+
 
   
   

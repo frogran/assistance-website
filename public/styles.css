@@ -120,7 +120,7 @@ button:active {
 .preprompt-button {
     margin: 0.2rem;
     padding: 0.5rem;
-    background-color: #f0f0f0; /* Default background */
+    background-color: #072481; /* Default background */
     border: 1px solid #908e8e;
     color: #000000;
     border-radius: 4px;
@@ -142,5 +142,9 @@ button:active {
     border: 1px solid #ccc;
     padding: 0.5rem;
     background-color: #999999;
+}
+
+.processed {
+    color: gray;
 }
 

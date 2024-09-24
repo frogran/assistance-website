@@ -20,7 +20,7 @@
         <!-- Admin Message Input -->
         <h2>Admin Message to All Users</h2>
         <textarea id="admin-message-input" placeholder="Enter admin message here..."></textarea>
-        <button id="send-all-button">Send All</button>
+        <button id="message-send-all-button">Send All</button>
 
         <!-- Preprompt Management -->
         <h2>Manage Preprompts</h2>
@@ -31,7 +31,14 @@
         </div>
 
         <!-- AI Output Generation -->
-        <button id="send-button">Send to OpenAI</button>
+        <div id="admin-send-buttons">
+            <button id="send-button">Generate AI Output</button>
+            <button id="send-single-button">Send to Single Participant</button>
+            <button id="send-all-button">Send to All Participants</button>
+        </div>
+        <h2>AI Outputs</h2>
+        <div id="ai-outputs"></div>
+
         <button id="pick-extreme-button">Pick Extreme</button>
 
         <!-- Extreme Submission Display Section -->

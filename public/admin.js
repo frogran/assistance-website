@@ -3,12 +3,27 @@ document.addEventListener('DOMContentLoaded', () => {
     const userId = 'AdminUser';
     document.getElementById('connected-users').innerText = 'Connected Users: Loading...';
 
-    const sendAllButton = document.getElementById('send-all-button');
+    const messageSendAllButton = document.getElementById('message-send-all-button');
     const addPrepromptButton = document.getElementById('add-preprompt-button');
     const sendButton = document.getElementById('send-button');
     const pickExtremeButton = document.getElementById('pick-extreme-button');
+    const sendSingleButton = document.getElementById('send-single-button');
+    const sendAllButton = document.getElementById('send-all-button');
 
+
+    sendButton.addEventListener('click', () => {
+        generateAIOutput();
+    });
+    
+    sendSingleButton.addEventListener('click', () => {
+        sendAIOutputToSingle();
+    });
+    
     sendAllButton.addEventListener('click', () => {
+        sendAIOutputToAll();
+    });
+
+    messageSendAllButton.addEventListener('click', () => {
         const messageInput = document.getElementById('admin-message-input').value;
         if (messageInput.trim()) {
             sendAdminMessage(messageInput);
@@ -35,30 +50,71 @@ document.addEventListener('DOMContentLoaded', () => {
     // Variable to store the selected preprompt ID
     let selectedPreprompt = null;
 
-    // Polling function to get updates from the server
-    function pollForUpdates() {
-        fetch(`/admin-get-updates`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Server responded with status ${response.status}`);
-                }
-                return response.json();
-            })
+
+
+    // Function to generate AI output
+    function generateAIOutput() {
+        fetch('/send-to-openai', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+        })
+            .then(response => response.json())
             .then(data => {
-                console.log('Received data:', data); // Add this line for debugging
-                updateCollectedTexts(data);
-                updatePrepromptButtons(data.preprompts);
-                selectedPreprompt = data.selectedPreprompt;
-                updateConnectedUsers(data.activeUserCount);
-                updateAdminAIOutput(data); // Update AI output/admin message display
+            alert('AI output generated and saved.');
+            pollForUpdates(); // Refresh the AI outputs display
             })
-            .catch(error => console.error('Error fetching updates:', error));
+            .catch(error => console.error('Error:', error));
+    }
+    
+    // Function to send AI output to a single participant
+    function sendAIOutputToSingle() {
+    fetch('/send-ai-output-single', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+    })
+        .then(response => response.json())
+        .then(data => {
+        alert(data.message);
+        pollForUpdates(); // Refresh the AI outputs display
+        })
+        .catch(error => console.error('Error:', error));
     }
 
-    // Start polling every 5 seconds
-    setInterval(pollForUpdates, 5000);
-    pollForUpdates(); // Initial call
+    // Function to send AI output to all participants
+    function sendAIOutputToAll() {
+    fetch('/send-ai-output-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+    })
+        .then(response => response.json())
+        .then(data => {
+        alert(data.message);
+        pollForUpdates(); // Refresh the AI outputs display
+        })
+        .catch(error => console.error('Error:', error));
+    }
 
+    // Function to update the AI outputs display
+    function updateAIOutputs(data) {
+        const aiOutputsDiv = document.getElementById('ai-outputs');
+        if (data.aiOutputs) {
+            // Reverse the array to show newest first
+            const aiOutputs = data.aiOutputs.slice().reverse();
+
+            aiOutputsDiv.innerHTML = aiOutputs
+            .map(item => {
+                const isSent = item.sent;
+                const className = isSent ? 'processed' : '';
+                return `<p class="${className}">${item.output}</p>`;
+            })
+            .join('');
+        } else {
+            aiOutputsDiv.innerHTML = '<p>No AI outputs yet.</p>';
+        }
+    }
+
+
+    
     function sendAdminMessage(message) {
         fetch('/send-admin-message', {
             method: 'POST',
@@ -185,28 +241,55 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateAdminAIOutput(data) {
         const adminAIOutputDiv = document.getElementById('admin-ai-output');
         const adminRecipientInfoDiv = document.getElementById('admin-recipient-info');
-    
+      
         if (data.adminMessage && data.adminMessage.message) {
-            // Display the admin message with label
-            adminAIOutputDiv.innerHTML = `<p><strong>Admin Message:</strong></p><p>${data.adminMessage.message}</p>`;
-            adminRecipientInfoDiv.innerText = ''; // Clear recipient info
+          // Display the admin message with label
+          adminAIOutputDiv.innerHTML = `<p><strong>Admin Message:</strong></p><p>${data.adminMessage.message}</p>`;
+          adminRecipientInfoDiv.innerText = ''; // Clear recipient info
         } else if (data.aiOutputContent) {
-            // Display the AI output
-            adminAIOutputDiv.innerHTML = `<p><strong>AI Output:</strong></p>` + data.aiOutputContent.split('\n').map(line => `<p>${line}</p>`).join('');
-            if (data.recipientUserId) {
-                adminRecipientInfoDiv.innerText = `AI output sent to: ${data.recipientUserId}`;
-            } else {
-                adminRecipientInfoDiv.innerText = '';
-            }
-        } else if (data.recipientUserId) {
-            // AI output was sent to someone else (unlikely in admin context)
+          // Display the AI output
+          adminAIOutputDiv.innerHTML =
+            `<p><strong>AI Output:</strong></p>` +
+            data.aiOutputContent
+              .split('\n')
+              .map(line => `<p>${line}</p>`)
+              .join('');
+          if (data.recipientUserId) {
             adminRecipientInfoDiv.innerText = `AI output sent to: ${data.recipientUserId}`;
-            adminAIOutputDiv.innerHTML = '';
-        } else {
-            // No AI output or admin message
+          } else {
             adminRecipientInfoDiv.innerText = '';
-            adminAIOutputDiv.innerHTML = '';
+          }
+        } else if (data.recipientUserId) {
+          adminRecipientInfoDiv.innerText = `AI output sent to: ${data.recipientUserId}`;
+          adminAIOutputDiv.innerHTML = '';
+        } else {
+          adminRecipientInfoDiv.innerText = '';
+          adminAIOutputDiv.innerHTML = '';
         }
     }
+      
     
+    function pollForUpdates() {
+    fetch(`/admin-get-updates`)
+        .then(response => {
+        if (!response.ok) {
+            throw new Error(`Server responded with status ${response.status}`);
+        }
+        return response.json();
+        })
+        .then(data => {
+        console.log('Received data:', data); // Debugging
+        updateCollectedTexts(data);
+        updatePrepromptButtons(data.preprompts);
+        selectedPreprompt = data.selectedPreprompt;
+        updateConnectedUsers(data.activeUserCount);
+        updateAdminAIOutput(data);
+        updateAIOutputs(data);
+        })
+        .catch(error => console.error('Error fetching updates:', error));
+    }
+      
+    // Start polling every 3 seconds
+    setInterval(pollForUpdates, 3000);
+    pollForUpdates(); // Initial call
 });
